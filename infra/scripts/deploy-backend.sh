@@ -12,10 +12,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-STACK_NAME="${1:-convopilot}"
-KEY_FILE="${2:-~/.ssh/id_rsa}"
+STACK_NAME="${1:-convopilot-demo}"
+KEY_FILE="${2:-~/.ssh/convopilot-demo.pem}"
 PROFILE="${3:-default}"
-AWS="aws --profile $PROFILE"
+AWS_REGION="eu-central-1"
+AWS="aws --profile $PROFILE --region $AWS_REGION"
 
 echo "=== ConvoPilot backend deploy ==="
 
