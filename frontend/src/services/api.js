@@ -12,7 +12,10 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const message = err.response?.data?.error?.message || 'Something went wrong';
-    if (err.response?.status !== 404) {
+    const status = err.response?.status;
+    // 401 = not authenticated (handled by each page individually)
+    // 404 = not found (usually handled inline)
+    if (status !== 401 && status !== 404) {
       toast.error(message);
     }
     return Promise.reject(err);
