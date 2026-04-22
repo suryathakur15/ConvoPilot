@@ -42,16 +42,16 @@ $SSH << 'REMOTE'
   git pull
 
   echo "→ docker compose build (no-cache for backend + ai-service)"
-  docker compose -f infra/docker-compose.prod.yml build --no-cache backend ai-service
+  docker compose -f infra/docker-compose.prod.yml --env-file .env build --no-cache backend ai-service
 
   echo "→ docker compose up -d"
-  docker compose -f infra/docker-compose.prod.yml up -d
+  docker compose -f infra/docker-compose.prod.yml --env-file .env up -d
 
   echo "→ running migrations"
   docker exec convopilot_backend node migrations/run.js
 
   echo "→ container status"
-  docker compose -f infra/docker-compose.prod.yml ps
+  docker compose -f infra/docker-compose.prod.yml --env-file .env ps
 REMOTE
 
 echo ""
