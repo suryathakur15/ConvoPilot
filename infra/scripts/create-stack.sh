@@ -7,9 +7,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Non-secret config (safe to commit) ───────────────────────────────────────
+# ── Edit these ────────────────────────────────────────────────────────────────
 STACK_NAME="convopilot-demo"
-AWS_REGION="eu-central-1"
+AWS_REGION="eu-central-1"              # Frankfurt — closest to Germany
 AWS_PROFILE="default"
 KEY_PAIR_NAME="convopilot-demo"
 GIT_REPO_URL="https://github.com/suryathakur15/ConvoPilot.git"
