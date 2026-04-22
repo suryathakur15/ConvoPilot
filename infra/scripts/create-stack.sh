@@ -7,22 +7,29 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Edit these ────────────────────────────────────────────────────────────────
+# ── Non-secret config (safe to commit) ───────────────────────────────────────
 STACK_NAME="convopilot-demo"
-AWS_REGION="eu-central-1"              # Frankfurt — closest to Germany
+AWS_REGION="eu-central-1"
 AWS_PROFILE="default"
+KEY_PAIR_NAME="convopilot-demo"
+GIT_REPO_URL="https://github.com/suryathakur15/ConvoPilot.git"
+INSTANCE_TYPE="t3.small"
 
-KEY_PAIR_NAME="convopilot-demo"        # ~/.ssh/convopilot-demo.pem
-GIT_REPO_URL="https://github.com/suryathakur15/ConvoPilot.git"   # ← update this
+# ── Secrets — read from environment (set via .env.infra, never hardcode) ─────
+DB_PASSWORD="${CONVOPILOT_DB_PASSWORD:?Set CONVOPILOT_DB_PASSWORD in .env.infra}"
+REDIS_PASSWORD="${CONVOPILOT_REDIS_PASSWORD:?Set CONVOPILOT_REDIS_PASSWORD in .env.infra}"
 
-DB_PASSWORD="REDACTED_DB_PASSWORD"     # ← set a strong password (min 12 chars)
-REDIS_PASSWORD="REDACTED_REDIS_PASSWORD"  # ← set a strong password (min 12 chars)
+AI_PROVIDER="${CONVOPILOT_AI_PROVIDER:-gemini}"
+AI_MODEL="${CONVOPILOT_AI_MODEL:-gemini-2.5-flash-lite}"
 
-AI_PROVIDER="gemini"                   # gemini | claude | openai
-AI_API_KEY="REDACTED_API_KEY"    # ← paste your Gemini API key
-AI_MODEL="gemini-2.0-flash"
+GEMINI_API_KEY="${CONVOPILOT_GEMINI_API_KEY:-}"
+GEMINI_MODEL="${CONVOPILOT_GEMINI_MODEL:-gemini-2.5-flash-lite}"
 
-INSTANCE_TYPE="t3.small"              # 2 vCPU / 2 GB — fine for demo
+OPENAI_API_KEY="${CONVOPILOT_OPENAI_API_KEY:-}"
+OPENAI_MODEL="${CONVOPILOT_OPENAI_MODEL:-gpt-4o}"
+
+ANTHROPIC_API_KEY="${CONVOPILOT_ANTHROPIC_API_KEY:-}"
+ANTHROPIC_MODEL="${CONVOPILOT_ANTHROPIC_MODEL:-claude-3-5-haiku-20241022}"
 # ─────────────────────────────────────────────────────────────────────────────
 
 TEMPLATE_FILE="$(cd "$(dirname "$0")/.." && pwd)/cloudformation.yml"
@@ -41,8 +48,13 @@ aws cloudformation deploy \
     DBPassword="$DB_PASSWORD" \
     RedisPassword="$REDIS_PASSWORD" \
     AIProvider="$AI_PROVIDER" \
-    AIApiKey="$AI_API_KEY" \
     AIModel="$AI_MODEL" \
+    GeminiApiKey="$GEMINI_API_KEY" \
+    GeminiModel="$GEMINI_MODEL" \
+    OpenAIApiKey="$OPENAI_API_KEY" \
+    OpenAIModel="$OPENAI_MODEL" \
+    AnthropicApiKey="$ANTHROPIC_API_KEY" \
+    AnthropicModel="$ANTHROPIC_MODEL" \
     InstanceType="$INSTANCE_TYPE"
 
 echo ""

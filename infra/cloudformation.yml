@@ -41,23 +41,40 @@ Parameters:
     AllowedValues: [gemini, claude, openai]
     Description: Which AI backend to use
 
-  AIApiKey:
-    Type: String
-    NoEcho: true
-    Description: API key for the chosen AI provider
-
   AIModel:
     Type: String
-    Default: gemini-2.0-flash
-    Description: "Model name - e.g. gemini-2.0-flash | claude-3-5-haiku-20241022 | gpt-4o"
+    Default: gemini-2.5-flash-lite
+    Description: "Active model name (should match the chosen provider)"
 
-# ── Mappings ──────────────────────────────────────────────────────────────────
-Mappings:
-  # Key names for each provider's env var in the AI service
-  AIProviderEnvKey:
-    gemini: { EnvKey: GEMINI_API_KEY,    ModelKey: GEMINI_MODEL }
-    claude: { EnvKey: ANTHROPIC_API_KEY, ModelKey: ANTHROPIC_MODEL }
-    openai: { EnvKey: OPENAI_API_KEY,    ModelKey: OPENAI_MODEL }
+  GeminiApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Google Gemini API key
+
+  GeminiModel:
+    Type: String
+    Default: gemini-2.5-flash-lite
+
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: OpenAI API key
+
+  OpenAIModel:
+    Type: String
+    Default: gpt-4o
+
+  AnthropicApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Anthropic API key
+
+  AnthropicModel:
+    Type: String
+    Default: claude-3-5-haiku-20241022
 
 # ── Resources ─────────────────────────────────────────────────────────────────
 Resources:
@@ -193,12 +210,12 @@ AI_PROVIDER=${AIProvider}
 AI_SERVICE_URL=http://ai-service:8000
 AI_MAX_CONTEXT_MESSAGES=20
 
-GEMINI_API_KEY=${AIApiKey}
-GEMINI_MODEL=${AIModel}
-ANTHROPIC_API_KEY=${AIApiKey}
-ANTHROPIC_MODEL=${AIModel}
-OPENAI_API_KEY=${AIApiKey}
-OPENAI_MODEL=${AIModel}
+GEMINI_API_KEY=${GeminiApiKey}
+GEMINI_MODEL=${GeminiModel}
+ANTHROPIC_API_KEY=${AnthropicApiKey}
+ANTHROPIC_MODEL=${AnthropicModel}
+OPENAI_API_KEY=${OpenAIApiKey}
+OPENAI_MODEL=${OpenAIModel}
 
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=200
