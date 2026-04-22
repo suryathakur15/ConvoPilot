@@ -4,6 +4,21 @@ from src.services.ai_service import ai_service
 bp = Blueprint("ai", __name__, url_prefix="/ai")
 
 
+@bp.route("/config", methods=["GET"])
+def get_ai_config():
+    from src.config import config
+    return jsonify({
+        "provider": config.AI_PROVIDER,
+        "gemini": {
+            "model": config.GEMINI_MODEL,
+            "key_present": bool(config.GEMINI_API_KEY)
+        },
+        "openai": {
+            "model": config.OPENAI_MODEL
+        }
+    })
+
+
 def _is_quota_error(e: Exception) -> bool:
     msg = str(e).lower()
     return "quota" in msg or "429" in msg or "rate limit" in msg or "exceeded" in msg
