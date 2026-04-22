@@ -74,6 +74,8 @@ function TypingDots() {
 }
 
 // ─── Auth forms ───────────────────────────────────────────────────────────────
+const AVATARS = ['🧑‍💻', '👩‍💼', '🧑‍🔧', '👨‍💼'];
+
 function AuthForm({ onSuccess }) {
   const [tab, setTab]       = useState('login');
   const [form, setForm]     = useState({ name: '', email: '', password: '' });
@@ -98,42 +100,69 @@ function AuthForm({ onSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col items-center justify-center p-5 relative overflow-hidden">
+
+      {/* Decorative blobs */}
+      <div className="absolute top-[-80px] right-[-80px] w-72 h-72 bg-emerald-200/40 rounded-full blur-[80px] pointer-events-none" />
+      <div className="absolute bottom-[-60px] left-[-60px] w-64 h-64 bg-teal-200/40 rounded-full blur-[80px] pointer-events-none" />
+
+      {/* Floating avatar strip */}
+      <div className="flex items-center gap-2 mb-6">
+        {AVATARS.map((a, i) => (
+          <div key={i} className={clsx(
+            'w-9 h-9 rounded-full bg-white border-2 border-white shadow-md flex items-center justify-center text-lg',
+            i > 0 && '-ml-2'
+          )}>{a}</div>
+        ))}
+        <div className="ml-2 text-sm text-slate-600 font-medium">
+          <span className="font-bold text-slate-800">4,200+</span> happy customers
+        </div>
+      </div>
+
+      {/* Card */}
       <div className="w-full max-w-sm">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 justify-center mb-8">
-          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-            <Bot className="w-5 h-5 text-white" />
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-2 bg-white border border-emerald-200 rounded-full px-4 py-1.5 shadow-sm mb-4">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-semibold text-emerald-700">Support team online</span>
           </div>
-          <span className="text-xl font-bold text-slate-900">ConvoPilot</span>
+          <h1 className="text-2xl font-black text-slate-900 leading-tight">
+            {tab === 'login' ? 'Good to see you again 👋' : 'We\'re here to help 💬'}
+          </h1>
+          <p className="text-sm text-slate-500 mt-2">
+            {tab === 'login'
+              ? 'Sign in to view your support tickets.'
+              : 'Any email works — this is a demo. Just pick something and jump in.'}
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-slate-200">
-            {['login', 'signup'].map((t) => (
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+          {/* Tab pills */}
+          <div className="flex gap-1.5 p-3 bg-slate-50 border-b border-slate-100">
+            {[{ id: 'login', label: '👤 Sign in' }, { id: 'signup', label: '✨ New here' }].map(({ id, label }) => (
               <button
-                key={t}
-                onClick={() => { setTab(t); setError(''); }}
+                key={id}
+                onClick={() => { setTab(id); setError(''); }}
                 className={clsx(
-                  'flex-1 py-3.5 text-sm font-semibold transition-colors',
-                  tab === t
-                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
-                    : 'text-slate-500 hover:text-slate-700'
+                  'flex-1 py-2 text-xs font-bold rounded-xl transition-all',
+                  tab === id
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                    : 'text-slate-400 hover:text-slate-600'
                 )}
               >
-                {t === 'login' ? 'Sign in' : 'Create account'}
+                {label}
               </button>
             ))}
           </div>
 
-          <form onSubmit={submit} className="p-6 space-y-4">
+          <form onSubmit={submit} className="p-5 space-y-3.5">
             {tab === 'signup' && (
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full name</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Your name</label>
                 <input
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-all"
-                  placeholder="John Smith"
+                  className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 bg-slate-50 focus:bg-white transition-all"
+                  placeholder="e.g. Alex Johnson"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   required
@@ -142,11 +171,11 @@ function AuthForm({ onSuccess }) {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email address</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email address</label>
               <input
                 type="email"
-                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-all"
-                placeholder="john@example.com"
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 bg-slate-50 focus:bg-white transition-all"
+                placeholder="you@example.com"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 required
@@ -154,11 +183,11 @@ function AuthForm({ onSuccess }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Password</label>
               <input
                 type="password"
-                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-all"
-                placeholder={tab === 'signup' ? 'At least 6 characters' : '••••••••'}
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 bg-slate-50 focus:bg-white transition-all"
+                placeholder={tab === 'signup' ? 'Choose any password (min 6 chars)' : '••••••••'}
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                 required
@@ -167,7 +196,7 @@ function AuthForm({ onSuccess }) {
             </div>
 
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 font-medium">
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5 font-medium">
                 {error}
               </p>
             )}
@@ -175,15 +204,27 @@ function AuthForm({ onSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors shadow-sm shadow-indigo-200 mt-1"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/25 mt-1 flex items-center justify-center gap-2"
             >
-              {loading ? 'Please wait…' : tab === 'login' ? 'Sign in' : 'Create account'}
+              {loading
+                ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Please wait…</>
+                : tab === 'login' ? '→ View my tickets' : '→ Start chatting'}
             </button>
           </form>
         </div>
 
+        {/* Demo note */}
+        <div className="mt-4 p-3 rounded-2xl bg-amber-50 border border-amber-200/60">
+          <p className="text-[11px] text-amber-700 text-center leading-5">
+            🎭 <strong>Demo environment</strong> — use any email & password. No real account needed. Just explore!
+          </p>
+        </div>
+
         <p className="text-center text-xs text-slate-400 mt-4">
-          Powered by ConvoPilot · Support Portal
+          {tab === 'login'
+            ? <><span>First time? </span><button onClick={() => setTab('signup')} className="text-emerald-600 font-semibold hover:text-emerald-700">Create an account →</button></>
+            : <><span>Already signed up? </span><button onClick={() => setTab('login')} className="text-emerald-600 font-semibold hover:text-emerald-700">Sign in →</button></>
+          }
         </p>
       </div>
     </div>
