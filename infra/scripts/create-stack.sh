@@ -8,21 +8,21 @@
 set -euo pipefail
 
 # ── Edit these ────────────────────────────────────────────────────────────────
-STACK_NAME="convopilot"
-AWS_REGION="us-east-1"
+STACK_NAME="convopilot-demo"
+AWS_REGION="eu-central-1"              # Frankfurt — closest to Germany
 AWS_PROFILE="default"
 
-KEY_PAIR_NAME="my-ec2-keypair"          # Must already exist in the region
-GIT_REPO_URL="https://github.com/you/convopilot.git"
+KEY_PAIR_NAME="convopilot-demo"        # ~/.ssh/convopilot-demo.pem
+GIT_REPO_URL="https://github.com/suryathakur15/ConvoPilot.git"   # ← update this
 
-DB_PASSWORD="ChangeMe_DB_Secret_1"      # Min 12 chars
-REDIS_PASSWORD="ChangeMe_Redis_S3cr3t"  # Min 12 chars
+DB_PASSWORD="SuryaDataBase@123"     # ← set a strong password (min 12 chars)
+REDIS_PASSWORD="SuryaRedis@123"  # ← set a strong password (min 12 chars)
 
-AI_PROVIDER="gemini"                    # gemini | claude | openai
-AI_API_KEY="your-api-key-here"
+AI_PROVIDER="gemini"                   # gemini | claude | openai
+AI_API_KEY="AIzaSyA6Ql-wk7qAyWVW4XZoRshOuu9EWMJ754U"    # ← paste your Gemini API key
 AI_MODEL="gemini-2.0-flash"
 
-INSTANCE_TYPE="t3.small"               # t3.small = 2 vCPU / 2 GB — fine for demo
+INSTANCE_TYPE="t3.small"              # 2 vCPU / 2 GB — fine for demo
 # ─────────────────────────────────────────────────────────────────────────────
 
 TEMPLATE_FILE="$(cd "$(dirname "$0")/.." && pwd)/cloudformation.yml"

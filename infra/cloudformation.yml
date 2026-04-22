@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   ConvoPilot demo stack.
-  Backend tier  — EC2 t3.small running Docker Compose (Node API + Python AI + Redis + Postgres).
-  Frontend tier — S3 static site served through CloudFront.
+  Backend tier  - EC2 t3.small running Docker Compose (Node API + Python AI + Redis + Postgres).
+  Frontend tier - S3 static site served through CloudFront.
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 Parameters:
@@ -49,7 +49,7 @@ Parameters:
   AIModel:
     Type: String
     Default: gemini-2.0-flash
-    Description: "Model name — e.g. gemini-2.0-flash | claude-3-5-haiku-20241022 | gpt-4o"
+    Description: "Model name - e.g. gemini-2.0-flash | claude-3-5-haiku-20241022 | gpt-4o"
 
 # ── Mappings ──────────────────────────────────────────────────────────────────
 Mappings:
@@ -114,7 +114,7 @@ Resources:
   InstanceSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ConvoPilot backend — HTTP + SSH only
+      GroupDescription: ConvoPilot backend - HTTP and SSH only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - { IpProtocol: tcp, FromPort: 22,  ToPort: 22,  CidrIp: 0.0.0.0/0 }
@@ -129,7 +129,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      # Latest Amazon Linux 2023 — no hardcoded AMI ID
+      # Latest Amazon Linux 2023 - no hardcoded AMI ID
       ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
       KeyName: !Ref KeyPairName
       SubnetId: !Ref PublicSubnet
@@ -137,7 +137,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 20    # GB — plenty for OS + Docker images + DB data
+            VolumeSize: 20    # GB - plenty for OS + Docker images + DB data
             VolumeType: gp3
             DeleteOnTermination: true
       Tags: [{ Key: Name, Value: convopilot-backend }]
@@ -246,7 +246,7 @@ Resources:
     Properties:
       # Unique per account so no naming collision
       BucketName: !Sub "convopilot-frontend-${AWS::AccountId}"
-      # Block all public access — CloudFront OAC handles delivery
+      # Block all public access - CloudFront OAC handles delivery
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -272,7 +272,7 @@ Resources:
         Enabled: true
         Comment: ConvoPilot frontend
         DefaultRootObject: index.html
-        PriceClass: PriceClass_100   # US/EU/Asia — cheapest that still has global PoPs
+        PriceClass: PriceClass_100   # US/EU/Asia - cheapest that still has global PoPs
 
         Origins:
           - Id: S3Origin
@@ -287,7 +287,7 @@ Resources:
           AllowedMethods: [GET, HEAD]
           Compress: true
 
-        # SPA fallback — all 404s served as index.html so React Router works
+        # SPA fallback - all 404s served as index.html so React Router works
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
@@ -335,7 +335,7 @@ Outputs:
       Name: !Sub "${AWS::StackName}-BackendSocketURL"
 
   FrontendBucketName:
-    Description: S3 bucket — upload your built frontend here
+    Description: S3 bucket - upload your built frontend here
     Value: !Ref FrontendBucket
     Export:
       Name: !Sub "${AWS::StackName}-FrontendBucket"

@@ -12,9 +12,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-STACK_NAME="${1:-convopilot}"
+STACK_NAME="${1:-convopilot-demo}"
 PROFILE="${2:-default}"
-AWS="aws --profile $PROFILE"
+SSL_MODE="${3:-}"        # pass "ssl" as 3rd arg once SSL is configured
+AWS_REGION="eu-central-1"
+AWS="aws --profile $PROFILE --region $AWS_REGION"
 
 echo "=== ConvoPilot frontend deploy ==="
 echo "Stack : $STACK_NAME"
@@ -33,14 +35,24 @@ BACKEND_API_URL=$(get_output BackendAPIURL)
 BACKEND_SOCKET_URL=$(get_output BackendSocketURL)
 S3_BUCKET=$(get_output FrontendBucketName)
 CF_DOMAIN=$(get_output FrontendURL)
-CF_ID=$($AWS cloudformation describe-stacks \
-  --stack-name "$STACK_NAME" \
-  --query "Stacks[0].Outputs[?OutputKey=='FrontendURL'].OutputValue" \
-  --output text | sed 's|https://||' | sed 's|\..*||')
 
-# Get distribution ID from the domain
-CF_DIST_ID=$($AWS cloudfront list-distributions \
-  --query "DistributionList.Items[?DomainName=='$(echo $CF_DOMAIN | sed 's|https://||')'].Id" \
+# If SSL is configured, use https:// and wss:// instead of bare IP URLs.
+# Pass the domain as 4th argument or set SSL_DOMAIN env var.
+if [[ "$SSL_MODE" == "ssl" ]]; then
+  SSL_DOMAIN="${4:-${SSL_DOMAIN:-}}"
+  if [[ -z "$SSL_DOMAIN" ]]; then
+    echo "Error: pass your domain as 4th arg when using ssl mode."
+    echo "  ./deploy-frontend.sh convopilot-demo default ssl api.yourdomain.com"
+    exit 1
+  fi
+  BACKEND_API_URL="https://$SSL_DOMAIN/api"
+  BACKEND_SOCKET_URL="https://$SSL_DOMAIN"
+  echo "SSL mode: using $BACKEND_API_URL"
+fi
+# Get CloudFront distribution ID directly from CloudFormation stack resources
+CF_DIST_ID=$($AWS cloudformation describe-stack-resources \
+  --stack-name "$STACK_NAME" \
+  --query "StackResources[?ResourceType=='AWS::CloudFront::Distribution'].PhysicalResourceId" \
   --output text)
 
 echo "Backend API : $BACKEND_API_URL"
