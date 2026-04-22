@@ -18,7 +18,7 @@ class Config:
     ANTHROPIC_MODEL   = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", 512))
 

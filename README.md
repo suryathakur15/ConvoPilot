@@ -126,7 +126,7 @@ aws cloudformation create-stack \
     ParameterKey=RedisPassword,ParameterValue=StrongPassword456 \
     ParameterKey=AIProvider,ParameterValue=gemini \
     ParameterKey=AIApiKey,ParameterValue=your_api_key \
-    ParameterKey=AIModel,ParameterValue=gemini-2.0-flash
+    ParameterKey=AIModel,ParameterValue=gemini-2.5-flash
 ```
 
 After the stack is up, build and upload the frontend:
