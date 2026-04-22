@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   ConvoPilot demo stack.
-  Backend tier  - EC2 t3.small running Docker Compose (Node API + Python AI + Redis + Postgres).
+  Backend tier - EC2 t3.small running Docker Compose (Node API + Python AI + Redis + Postgres).
   Frontend tier - S3 static site served through CloudFront.
 
 # ── Parameters ────────────────────────────────────────────────────────────────
@@ -13,15 +13,13 @@ Parameters:
 
   GitRepoURL:
     Type: String
-    Description: "HTTPS git URL to clone on the server  e.g. https://github.com/you/convopilot.git"
+    Description: "HTTPS git URL to clone on the server e.g. https://github.com/you/convopilot.git"
 
   InstanceType:
     Type: String
     Default: t3.small
     AllowedValues: [t3.small, t3.medium]
-    Description: >
-      t3.small (2 vCPU / 2 GB) covers the demo load comfortably.
-      Upgrade to t3.medium if you plan heavy parallel AI calls.
+    Description: t3.small (2 vCPU / 2 GB) covers the demo load comfortably.
 
   DBPassword:
     Type: String
@@ -44,7 +42,7 @@ Parameters:
   AIModel:
     Type: String
     Default: gemini-2.5-flash-lite
-    Description: "Active model name (should match the chosen provider)"
+    Description: Active model name (should match the chosen provider)
 
   GeminiApiKey:
     Type: String
@@ -154,7 +152,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 20    # GB - plenty for OS + Docker images + DB data
+            VolumeSize: 20
             VolumeType: gp3
             DeleteOnTermination: true
       Tags: [{ Key: Name, Value: convopilot-backend }]
@@ -166,11 +164,9 @@ Resources:
 
           echo "=== ConvoPilot bootstrap ==="
 
-          # ── System packages ────────────────────────────────────────────────
           dnf update -y
           dnf install -y docker git
 
-          # ── Docker ─────────────────────────────────────────────────────────
           systemctl enable --now docker
           usermod -aG docker ec2-user
 
@@ -181,7 +177,6 @@ Resources:
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-          # ── Clone repo ─────────────────────────────────────────────────────
           git clone "${GitRepoURL}" /opt/convopilot
           chown -R ec2-user:ec2-user /opt/convopilot
           cd /opt/convopilot
@@ -233,9 +228,9 @@ ENVEOF
           RemainAfterExit=yes
           WorkingDirectory=/opt/convopilot
           ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose \
-                    -f docker-compose.prod.yml up -d --build
+                    -f infra/docker-compose.prod.yml --env-file .env up -d --build
           ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose \
-                   -f docker-compose.prod.yml down
+                   -f infra/docker-compose.prod.yml --env-file .env down
           Restart=on-failure
           User=ec2-user
 
@@ -289,18 +284,18 @@ ENVEOF
         Enabled: true
         Comment: ConvoPilot frontend
         DefaultRootObject: index.html
-        PriceClass: PriceClass_100   # US/EU/Asia - cheapest that still has global PoPs
+        PriceClass: PriceClass_100
 
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
             OriginAccessControlId: !Ref CloudFrontOAC
-            S3OriginConfig: {}       # required but empty when using OAC
+            S3OriginConfig: {}
 
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized (managed)
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           AllowedMethods: [GET, HEAD]
           Compress: true
 
