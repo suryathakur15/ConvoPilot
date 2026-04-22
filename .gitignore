@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+.env.infra
 backend/.env
 ai-service/.env
 *.pem
