@@ -31,24 +31,28 @@ get_output() {
     --output text
 }
 
+# ── Smart discovery of defaults ──────────────────────────────────────────────
+# Try to load local config if present
+if [[ -f "./infra/scripts/.env.infra" ]]; then
+  source "./infra/scripts/.env.infra"
+fi
+
 BACKEND_API_URL=$(get_output BackendAPIURL)
 BACKEND_SOCKET_URL=$(get_output BackendSocketURL)
 S3_BUCKET=$(get_output FrontendBucketName)
 CF_DOMAIN=$(get_output FrontendURL)
 
-# If SSL is configured, use https:// and wss:// instead of bare IP URLs.
-# Pass the domain as 4th argument or set SSL_DOMAIN env var.
-if [[ "$SSL_MODE" == "ssl" ]]; then
-  SSL_DOMAIN="${4:-${SSL_DOMAIN:-}}"
-  if [[ -z "$SSL_DOMAIN" ]]; then
-    echo "Error: pass your domain as 4th arg when using ssl mode."
-    echo "  ./deploy-frontend.sh convopilot-demo default ssl api.yourdomain.com"
-    exit 1
-  fi
+# Auto-detect Domain-based routing if SSL_MODE or SSL_DOMAIN is set
+# Priority: Argument > Env Variable > CF Output
+SSL_MODE="${3:-${SSL_MODE:-}}"
+SSL_DOMAIN="${4:-${SSL_DOMAIN:-${CONVOPILOT_DOMAIN:-}}}"
+
+if [[ "$SSL_MODE" == "ssl" && -n "$SSL_DOMAIN" ]]; then
   BACKEND_API_URL="https://$SSL_DOMAIN/api"
   BACKEND_SOCKET_URL="https://$SSL_DOMAIN"
-  echo "SSL mode: using $BACKEND_API_URL"
+  echo "Auto-detected SSL domain: $SSL_DOMAIN"
 fi
+
 # Get CloudFront distribution ID directly from CloudFormation stack resources
 CF_DIST_ID=$($AWS cloudformation describe-stack-resources \
   --stack-name "$STACK_NAME" \
