@@ -1,0 +1,351 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  ConvoPilot demo stack.
+  Backend tier  — EC2 t3.small running Docker Compose (Node API + Python AI + Redis + Postgres).
+  Frontend tier — S3 static site served through CloudFront.
+
+# ── Parameters ────────────────────────────────────────────────────────────────
+Parameters:
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 key pair for SSH access
+
+  GitRepoURL:
+    Type: String
+    Description: "HTTPS git URL to clone on the server  e.g. https://github.com/you/convopilot.git"
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium]
+    Description: >
+      t3.small (2 vCPU / 2 GB) covers the demo load comfortably.
+      Upgrade to t3.medium if you plan heavy parallel AI calls.
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 12
+    Description: PostgreSQL password (min 12 chars)
+
+  RedisPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 12
+    Description: Redis password (min 12 chars)
+
+  AIProvider:
+    Type: String
+    Default: gemini
+    AllowedValues: [gemini, claude, openai]
+    Description: Which AI backend to use
+
+  AIApiKey:
+    Type: String
+    NoEcho: true
+    Description: API key for the chosen AI provider
+
+  AIModel:
+    Type: String
+    Default: gemini-2.0-flash
+    Description: "Model name — e.g. gemini-2.0-flash | claude-3-5-haiku-20241022 | gpt-4o"
+
+# ── Mappings ──────────────────────────────────────────────────────────────────
+Mappings:
+  # Key names for each provider's env var in the AI service
+  AIProviderEnvKey:
+    gemini: { EnvKey: GEMINI_API_KEY,    ModelKey: GEMINI_MODEL }
+    claude: { EnvKey: ANTHROPIC_API_KEY, ModelKey: ANTHROPIC_MODEL }
+    openai: { EnvKey: OPENAI_API_KEY,    ModelKey: OPENAI_MODEL }
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+Resources:
+
+  # ── Networking ──────────────────────────────────────────────────────────────
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: convopilot-vpc }]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: convopilot-igw }]
+
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: convopilot-public }]
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IGWAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  # ── Security Group ──────────────────────────────────────────────────────────
+  InstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ConvoPilot backend — HTTP + SSH only
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 22,  ToPort: 22,  CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80,  ToPort: 80,  CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+      SecurityGroupEgress:
+        - { IpProtocol: -1, CidrIp: 0.0.0.0/0 }
+      Tags: [{ Key: Name, Value: convopilot-sg }]
+
+  # ── EC2 Instance ────────────────────────────────────────────────────────────
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      # Latest Amazon Linux 2023 — no hardcoded AMI ID
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref InstanceSG]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20    # GB — plenty for OS + Docker images + DB data
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags: [{ Key: Name, Value: convopilot-backend }]
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > /var/log/user-data.log 2>&1
+
+          echo "=== ConvoPilot bootstrap ==="
+
+          # ── System packages ────────────────────────────────────────────────
+          dnf update -y
+          dnf install -y docker git
+
+          # ── Docker ─────────────────────────────────────────────────────────
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+
+          # Docker Compose v2 plugin
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -fsSL \
+            "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+          # ── Clone repo ─────────────────────────────────────────────────────
+          git clone "${GitRepoURL}" /opt/convopilot
+          chown -R ec2-user:ec2-user /opt/convopilot
+          cd /opt/convopilot
+
+          # ── Production .env ────────────────────────────────────────────────
+          cat > /opt/convopilot/.env << 'ENVEOF'
+          NODE_ENV=production
+          BACKEND_PORT=4000
+          AI_SERVICE_PORT=8000
+
+          POSTGRES_HOST=postgres
+          POSTGRES_PORT=5432
+          POSTGRES_USER=convopilot
+          POSTGRES_PASSWORD=${DBPassword}
+          POSTGRES_DB=convopilot
+          POSTGRES_POOL_MIN=2
+          POSTGRES_POOL_MAX=5
+
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_PASSWORD=${RedisPassword}
+
+          CORS_ORIGINS=*
+
+          AI_PROVIDER=${AIProvider}
+          AI_SERVICE_URL=http://ai-service:8000
+          AI_MAX_CONTEXT_MESSAGES=20
+
+          GEMINI_API_KEY=${AIApiKey}
+          GEMINI_MODEL=${AIModel}
+          ANTHROPIC_API_KEY=${AIApiKey}
+          ANTHROPIC_MODEL=${AIModel}
+          OPENAI_API_KEY=${AIApiKey}
+          OPENAI_MODEL=${AIModel}
+
+          RATE_LIMIT_WINDOW_MS=60000
+          RATE_LIMIT_MAX_REQUESTS=200
+          ENVEOF
+
+          # ── Systemd service ────────────────────────────────────────────────
+          cat > /etc/systemd/system/convopilot.service << 'SVCEOF'
+          [Unit]
+          Description=ConvoPilot Docker Compose stack
+          After=docker.service network-online.target
+          Requires=docker.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          WorkingDirectory=/opt/convopilot
+          ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose \
+                    -f docker-compose.prod.yml up -d --build
+          ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose \
+                   -f docker-compose.prod.yml down
+          Restart=on-failure
+          User=ec2-user
+
+          [Install]
+          WantedBy=multi-user.target
+          SVCEOF
+
+          systemctl daemon-reload
+          systemctl enable convopilot
+          systemctl start convopilot
+
+          echo "=== Bootstrap complete ==="
+
+  # ── Elastic IP (stable address for VITE_API_URL) ────────────────────────────
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref EC2Instance
+      Tags: [{ Key: Name, Value: convopilot-eip }]
+
+  # ── Frontend: S3 bucket ─────────────────────────────────────────────────────
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Unique per account so no naming collision
+      BucketName: !Sub "convopilot-frontend-${AWS::AccountId}"
+      # Block all public access — CloudFront OAC handles delivery
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags: [{ Key: Project, Value: convopilot }]
+
+  # ── CloudFront Origin Access Control ────────────────────────────────────────
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: convopilot-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ── CloudFront distribution ─────────────────────────────────────────────────
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: ConvoPilot frontend
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100   # US/EU/Asia — cheapest that still has global PoPs
+
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !Ref CloudFrontOAC
+            S3OriginConfig: {}       # required but empty when using OAC
+
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized (managed)
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+
+        # SPA fallback — all 404s served as index.html so React Router works
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  # ── S3 bucket policy (allows CloudFront OAC to read) ────────────────────────
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+# ── Outputs ───────────────────────────────────────────────────────────────────
+Outputs:
+
+  BackendIP:
+    Description: Elastic IP of the EC2 backend
+    Value: !Ref ElasticIP
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendIP"
+
+  BackendAPIURL:
+    Description: Base URL for VITE_API_URL (used when building the frontend)
+    Value: !Sub "http://${ElasticIP}/api"
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendAPIURL"
+
+  BackendSocketURL:
+    Description: Socket.io URL (used for VITE_SOCKET_URL)
+    Value: !Sub "http://${ElasticIP}"
+    Export:
+      Name: !Sub "${AWS::StackName}-BackendSocketURL"
+
+  FrontendBucketName:
+    Description: S3 bucket — upload your built frontend here
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucket"
+
+  FrontendURL:
+    Description: CloudFront URL for the frontend
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendURL"
+
+  SSHCommand:
+    Description: SSH into the backend server
+    Value: !Sub "ssh -i ~/.ssh/${KeyPairName}.pem ec2-user@${ElasticIP}"

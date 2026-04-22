@@ -1,0 +1,87 @@
+version: "3.9"
+
+# ─── Production compose ───────────────────────────────────────────────────────
+# Differences from the dev compose:
+#   - No source volume mounts (images are built from Dockerfiles)
+#   - Backend and AI service run in production mode
+#   - Redis and Postgres ports NOT exposed to host (internal only)
+#   - Frontend served via S3 + CloudFront — not included here
+#   - All containers restart unless manually stopped
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: convopilot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: convopilot_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: convopilot-backend:prod
+    container_name: convopilot_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      AI_SERVICE_URL: http://ai-service:8000
+    # No source volume — uses the image built by Dockerfile
+
+  ai-service:
+    build:
+      context: ../ai-service
+      dockerfile: Dockerfile
+    image: convopilot-ai:prod
+    container_name: convopilot_ai
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      AI_SERVICE_HOST: "0.0.0.0"
+    # No source volume — uses the image built by Dockerfile
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: convopilot_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ../backend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
